@@ -41,22 +41,18 @@ job_done(Number) ->
 -record(count, {state = 0}).
 init([]) ->
   io:format("1111"),
-  ets:new(job, [named_table, public]),
-  ets:new(runningJob, [named_table, public]),
+  ets:new(job, [ordered_set,named_table, public]),
+  ets:new(runningJob, [ordered_set,named_table, public]),
   io:format("1111"),
-  ets:new(lastWorkTime,[named_table, public]),
+  ets:new(lastWorkTime, [ordered_set,named_table, public]),
   {ok, #count{state = 0}}.
 
 
 %%%job和runningJob为两个ets
 handle_call({add_job, F}, _From, State) ->
   #count{state = NewId} = State,
-  Reply = case ets:lookup(job, F) of
-            [] ->
-              ets:insert(job, {NewId, F}),
-              NewId;
-            [_] -> work_exist
-          end,
+  ets:insert(job, {NewId, F}),
+  Reply = ok,
   {reply, Reply, #count{state = NewId + 1}};
 
 
@@ -64,12 +60,18 @@ handle_call({add_job, F}, _From, State) ->
 
 handle_call({work_wanted}, From, State) ->
 %%
-  Reply = case ets:lookup(lastWorkTime, From) of
+  {Pid,_} = From,
+  io:format("Pid~w~n",[Pid]),
+  Value = ets:lookup(lastWorkTime,Pid),
+  io:format("Key:Value:~w~n",[Value]),
+  Reply = case Value of
             [] ->
               case ets:first(job) of
                 '$end_of_table' -> no;
-                    _Other      -> ets:insert(runningJob, {ets:first(job), now()}),
-                                   ets:delete(job, ets:first(job))
+                _Other -> Work = ets:lookup(job, ets:first(job)),
+                  ets:insert(runningJob, {ets:first(job), now()}),
+                  ets:delete(job, ets:first(job)),
+                  Work
               end;
             [_] -> need_do_rest
           end,
@@ -82,11 +84,12 @@ handle_call({job_done, Number}, _From, State) ->
             [] -> no_such_job;
             [_] ->
 %%              io:format("123"),
+              {Pid , _X} = _From,
               ets:delete(runningJob, Number),
               %%记录最后一个人的完成时间,
-              ets:insert(lastWorkTime, {_From, now()}),
+              ets:insert(lastWorkTime, {Pid, now()}),
               %%休息10秒
-              spawn(fun() -> workerRest(_From, 10000) end),
+              spawn(fun() -> workerRest(Pid, 100000) end),
               ok
           end,
   {reply, Reply, State}.
@@ -107,6 +110,7 @@ code_change(_oldVison, State, _Extra) -> {ok, State}.
 
 
 workerRest(Pid, Time) ->
+  io:format("~w~n", [Pid]),
   receive
   after Time ->
     ets:delete(lastWorkTime, Pid)
