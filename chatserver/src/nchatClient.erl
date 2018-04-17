@@ -26,8 +26,7 @@ loopForRec() ->
         {tcp,_Socket,Bin}->
             % io:format("432"),
             Mes = binary_to_term(Bin),
-            {User,Time,_Type,Msg} =Mes,
-            io:format("re:~w~n",[{User,Time,Msg}]),
+            io:format("re:~w~n",[Mes]),
             loopForRec();
         {tpc_closed,_Socket}->
             io:format("tcp closed~n")

@@ -36,11 +36,16 @@ managerFun(Table) ->
             nlogicChat:leave(Socket),
             managerFun(Table--[Socket]);
 
-
-        {data,Data}->
-            [gen_tcp:send(Socket,Data)||Socket<-Table],
-            managerFun(Table)
-  
+        % {data,Data}->
+        %     [gen_tcp:send(Socket,Data)||Socket<-Table],
+        %     managerFun(Table)
+        {data,Data} ->
+          DataDecode =binary_to_term(Data),
+          % io:format("~w ~n",[DataDecode]),
+          {User,Time,_Type,Msg} = DataDecode,  
+          FixData = term_to_binary({User,Time,Msg}),
+          [gen_tcp:send(Socket,FixData)||Socket<-Table],
+          managerFun(Table)
   end. 
 
 listenClient(Socket) ->
