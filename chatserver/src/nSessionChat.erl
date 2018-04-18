@@ -30,7 +30,7 @@ doAccept(Listen) ->
 managerFun(Table) ->
     receive
         {join,Socket} ->
-            nlogicChat:join(Socket),
+            Ans = nlogicChat:join(Socket),
             managerFun([Socket|Table]);
         {leave,Socket} ->
             nlogicChat:leave(Socket),
@@ -39,13 +39,31 @@ managerFun(Table) ->
         % {data,Data}->
         %     [gen_tcp:send(Socket,Data)||Socket<-Table],
         %     managerFun(Table)
-        {data,Data} ->
+        % {data,Data} ->
+        %   DataDecode =binary_to_term(Data),
+        %   % io:format("~w ~n",[DataDecode]),
+        %   {User,Time,_Type,Msg} = DataDecode,  
+        %   FixData = term_to_binary({User,Time,Msg}),
+        %   [gen_tcp:send(Socket,FixData)||Socket<-Table],
+        %   managerFun(Table)
+
+        {data,Data}->
+          io:format("Binary:~w~n",[Data]),
           DataDecode =binary_to_term(Data),
-          % io:format("~w ~n",[DataDecode]),
-          {User,Time,_Type,Msg} = DataDecode,  
-          FixData = term_to_binary({User,Time,Msg}),
-          [gen_tcp:send(Socket,FixData)||Socket<-Table],
-          managerFun(Table)
+          io:format("~w ~n",[DataDecode]),
+          Ans = nlogicChat:dealMsg(Data),
+          io:format("aa:~w~n",[Ans]),
+          Command = send,
+          Msg = Data,
+          case Command of
+            send-> self()!{send,Msg};
+            err -> ok
+          end,
+          managerFun(Table);
+        {send,Msg} ->
+            io:format("sast Message:",Msg),
+            [gen_tcp:send(Socket,Msg)||Socket<-Table],
+            managerFun(Table)
   end. 
 
 listenClient(Socket) ->
