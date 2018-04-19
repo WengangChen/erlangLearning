@@ -2,16 +2,16 @@
 -behavior(supervisor). 
 -author("GangChen"). 
 
--export([start/0,start/1,start_in_shell/0,start_link/1,init/1]). 
+-export([start/0,start/1,start_in_shell/1,start_link/1,init/1]). 
 
 start()->
     start([]).
 start(Arg)->
     spawn(fun() ->supervisor:start_link({local,?MODULE},?MODULE,Arg) end). 
 
-start_in_shell()->
-    {ok,Pid} = supervisor:start_link({local,?MODULE},?MODULE,_Arg = []),
-    io:format("testerSup-12:~w ~n",[Pid]),
+start_in_shell(Arg)->
+    {ok,Pid} = supervisor:start_link({local,?MODULE},?MODULE,Arg),
+    % io:format("testerSup-12:~w ~n",[Pid]),
     unlink(Pid).
 
 start_link(Arg) ->

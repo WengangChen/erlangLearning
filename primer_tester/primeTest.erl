@@ -4,17 +4,25 @@
 
 -behavior(gen_server). 
 
--export([start/1,checkPrime/2,init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,code_change/3]). 
+-export([start/1,start_link/1,checkPrime/2,init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,code_change/3]). 
 
 
 start(Name)->
     % Name = tag1,
+    logicTest:setEmpty(Name),
     Pid = gen_server:start_link({local,Name},?MODULE,[],[]),
-    io:format("PrimeTest-12:Pid:~w name:~w ~n ",[Pid,Name]),
+    io:format("PrimeTest-start:Pid:~w name:~w ~n ",[Pid,Name]),
     Pid. 
 
+start_link(Name)->
+    Pid = gen_server:start_link({local,Name},?MODULE,[],[]),
+    io:format("PrimeTest-start_link:Pid:~w name:~w ~n ",[Pid,Name]),
+    Pid.
 
-checkPrime(Name,Number)-> gen_server:call(Name,{checkPrime,Number}).
+
+checkPrime(Name,Number)-> 
+    % io:format("primeTest-checkPrime:Process Name:~w Value:~w ~n",[Name,Number]),
+    gen_server:call(Name,{checkPrime,Number}).
 
 %%------------------------------------------------------------------------------------ 
 
@@ -24,7 +32,7 @@ init([])->{ok,empty}.
 %%------------------------------------------------------------------------------------------
 
 handle_call({checkPrime,_Number},_From,State)->
-    io:format("primeTest-27:Pid:~w~n",[self()]),
+    % io:format("primeTest-27:Pid:~w~n",[self()]),
     {reply,true,State}. 
 
 
