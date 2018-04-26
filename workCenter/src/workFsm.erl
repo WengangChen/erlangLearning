@@ -21,7 +21,7 @@ work({doWork,{Module,Func,Args}},State)->
     apply(Module,Func,Args),
     case State#state.workHasDoneCount +1 of
         Times when Times == State#state.limitsTimes ->
-            NewState = State#state{workHasDoneCount = 0,startRestTime = calendar:local_time()},
+            NewState = State#state{workHasDoneCount = 0,startRestTime = getNowMiniSecondStamp()},
             {next_state,rest,NewState,State#state.sleepTime};
         Oth ->
             NewState = State#state{workHasDoneCount = Oth},
@@ -31,8 +31,7 @@ work({doWork,{Module,Func,Args}},State)->
 
 rest({doWork,{_Module,_Func,_Args}},State)->
     io:format("work center ~w need to Rest~n",[self()]),
-    HasRestTime = (calendar:datetime_to_gregorian_seconds(calendar:local_time())
-                    - calendar:datetime_to_gregorian_seconds(State#state.startRestTime)) *1000,
+    HasRestTime = getNowMiniSecondStamp()-State#state.startRestTime,
     {next_state,rest,State,State#state.sleepTime-HasRestTime}; 
 rest(timeout,State)->
     {next_state,work,State}.  
@@ -58,3 +57,14 @@ handle_info(_Info,State,Data) ->
 
 handle_sync_event(stop,_From,_State,Data)->
     {stop,normal,ok,Data}. 
+
+
+
+%%----------------------------------------------------------------------------------
+%% 私有函数
+%%---------------------------------------------------------------------------------
+
+
+getNowMiniSecondStamp()->
+    {MegaSec,Sec,MircorSec} =os:timestamp(),
+    MegaSec*1000000000+Sec*1000+MircorSec div 1000. 

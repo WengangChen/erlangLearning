@@ -12,11 +12,12 @@ test()->
     workFsm:requestWork({io,format,["do job~n"]}),
     sleep(1000),
     workFsm:requestWork({io,format,["do job~n"]}),
+    %---这里fsm应该是已经休息
     sleep(1000),
     workFsm:requestWork({io,format,["do job~n"]}),
     sleep(1000),
     io:format("lala~n"),
-    sleep(8000),
+    sleep(7950),
     workFsm:requestWork({io,format,["do job~n"]}). 
 
 
