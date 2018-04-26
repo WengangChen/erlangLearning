@@ -9,15 +9,17 @@ test()->
     sleep(1000),
     [A|Oth] =PidList,
     [B|_Oth1] = Oth,
-    A!{send,'this is A'},
+    A!{send,"this is A"},
     sleep(1000),
-    B!{sendToUser,'hello A',1},
+    B!{sendToUser,"hello A",1},
+    sleep(1000),
     A!{logout},
+    B!{sendToUser,"hello A",1},
     sleep(1000),
-    B!{sendToUser,'hello A',1},
+    io:format("getOnlieUser: ~w ~n",[chatServer:getOnlineUser({'_','_'})]),
     sleep(1000),
-    io:format("getOnlieUser: ~w ~n",[chatServer:getOnlineUser('$1')]),
-    sleep(1000),
+    B!{sendToUserList,"I am B",[1,2,3,4,5]},
+    sleep(1000),    
     B!{logout}.  
 
 
@@ -48,8 +50,10 @@ userAction(UserName) ->
             userAction(UserName);
         {logout}->
             chatServer:logout(UserName);
+        {sendToUserList,Msg,UserList}->
+            chatServer:sendMsgToUserList(Msg,UserList);
         {From,Time,Msg} ->
-            io:format("~w receive Msg:~w ~n",[UserName,{From,Time,Msg}]),
+            io:format("~w receive Msg:From:~w     Time:~w     Message: ~s ~n",[UserName,From,Time,Msg]),
             userAction(UserName);
         Oth ->io:format("~w err ~n",[Oth]),
             userAction(UserName)

@@ -9,6 +9,7 @@
         sendMsg/2,
         getOnlineUser/1,
         sendMsgToUser/2,
+        sendMsgToUserList/2,
         init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,code_change/3]). 
 
 start()->
@@ -22,10 +23,13 @@ logout(Name)->
     gen_server:call(?MODULE,{logout,Name}). 
 
 sendMsg(Msg) -> 
-    sendMsg(Msg,{'_','$1'}). 
+    sendMsg(Msg,{'_','_'}). 
 
 sendMsgToUser(Msg,User)->
     gen_server:call(?MODULE,{sendMsgToUser,{Msg,User}}). 
+
+sendMsgToUserList(Msg,UserList)->
+    gen_server:call(?MODULE,{sendMsgToUserList,{Msg,UserList}}). 
 
 sendMsg(Msg,Pattern) ->
     gen_server:call(?MODULE,{send,{Msg,Pattern}}). 
@@ -68,13 +72,13 @@ handle_call({logout,Name},_From,Table)->
 
 handle_call({send,{Msg,Pattern}},From,Table)->
     {FromPid,_Ref} = From,
-    List = ets:match(Table,Pattern),
+    List = ets:match_object(Table,Pattern),
     Reply = try List of
                 [] -> noOne;
                 _Oth -> 
-                    [[SenderName]] = ets:match(Table,{'$1',FromPid}),
+                    [{SenderName,FromPid}] = ets:match_object(Table,{'_',FromPid}),
                     % [io:format("sc-76:Elem:~w~n",[Elem])||Elem<-List],
-                    [Pid!{SenderName,calendar:local_time(),Msg}||Elem<-List ,Pid <- Elem],
+                    [Pid!{SenderName,calendar:local_time(),Msg}||{_Name,Pid}<-List],
                     ok
             catch
                 _:_ -> errorinCastMsg
@@ -83,22 +87,33 @@ handle_call({send,{Msg,Pattern}},From,Table)->
 
 handle_call({sendMsgToUser,{Msg,User}},From,Table) ->
     {FromPid,_Ref} = From,
-    % io:format("cs-86:~w FromPId :~w~n",[ets:lookup(Table,User),FromPid]),
+    % io:format("cs-86:~w FromPid :~w~n",[ets:lookup(Table,User),FromPid]),
     Reply = case catch ets:lookup(Table,User) of
             [] -> noSuchUser;
             [{User,Pid}] -> 
                 % io:format("cs-89:1 Pid:~w ~n",[Pid]),
-                [[SenderName]] = ets:match(Table,{'$1',FromPid}),
+                [{SenderName,FromPid}] = ets:match_object(Table,{'$1',FromPid}),
                 Pid!{SenderName,calendar:local_time(),Msg},
                 ok;
             _Oth ->err
     end,
     {reply,{Reply},Table};
 
+handle_call({sendMsgToUserList,{Msg,UserList}},From,Table)->
+    {FromPid,_Ref} = From,
+    [{SenderName,FromPid}] = ets:match_object(Table,{'$1',FromPid}),
+    SendFailList = sendMsgToUserNameList({SenderName,calendar:local_time(),Msg},UserList,Table,[]),
+    Reply = case SendFailList of
+        err -> {err,some_error_in_lookup_in_table};
+        Oth-> {ok,Oth}
+    end,
+    {reply,Reply,Table};
+
+
 handle_call({getOnlineUser,Pattern},_From,Table)->
-    MatchList = ets:match(Table,Pattern),
+    MatchList = ets:match_object(Table,Pattern),
     % io:format("sc-100 :List:~w ~n",[List]),
-    List= [UserName||Elem <-MatchList,{UserName,_Pid}<-Elem],
+    List= [UserName||{UserName,_Pid}<-MatchList],
     {reply,{List},Table}. 
 
 %---------------------------------
@@ -110,3 +125,25 @@ handle_info(_Info,Table)->{noreply,Table}.
 terminate(_Reason,_State) ->ok. 
 
 code_change(_OldVsn,State,_Extra) ->{ok,State}. 
+
+
+
+
+%%--------------------------------------------------------
+%% private function
+%%--------------------------------------------------------
+%给消息和需要发送的用户列表，全部发送过去,并且返回发送失败的人
+sendMsgToUserNameList(_Msg,[],_Table,SendFailList)->
+    SendFailList;
+sendMsgToUserNameList(Msg,UserNameList,Table,SendFailList)->
+    [Now|Remain] = UserNameList,
+    case catch ets:lookup(Table,Now) of
+        [{Now,Pid}] ->
+            Pid !Msg,
+            sendMsgToUserNameList(Msg,Remain,Table,SendFailList);
+        %查不到这个人
+        []->
+            sendMsgToUserNameList(Msg,Remain,Table,[Now|SendFailList]);
+        _Oth->
+            err
+    end. 
