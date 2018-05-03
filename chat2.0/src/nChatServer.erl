@@ -18,7 +18,10 @@
 
 
 login(User)->
-    gen_server:start_link({local,User},?MODULE,[],[]). 
+    % io:format("nchat -21: lalal~n"),
+    Result = gen_server:start_link({local,User},?MODULE,[],[]),
+    % io:format("nchat-23:Result ~w~n",[Result]),
+    Result.  
 
 sendMsg(User,{Sender,Type,Msg},ReceiveList)->
     gen_server:call(User,{sendMsg,{Sender,Type,Msg},ReceiveList}). 
@@ -37,7 +40,7 @@ stop(User)->
 init([])->
     case catch userOperator:createNewUser(self()) of
         {ok,_} ->
-            {ok,queue:new());
+            {ok,queue:new()};
         {error,Reason}->
             {stop,Reason};
         _Oth ->
@@ -46,8 +49,10 @@ init([])->
 
 %--------------------------------------------------------------
 handle_call({sendMsg,{Sender,Type,Msg},ReceiveList},_From,_MsgBox)->
+    % io:format("nChat-52~n"),
     FixMsg = fixMsg(Sender,Type,Msg),
     Result  = [Pid ! FixMsg ||Pid<-ReceiveList,is_pid(Pid)],
+    % io:format("nChat-55 Result:~w~n",[Result]),
     {reply,{ok,length(Result)},_MsgBox};
 handle_call({getMsg},_From,MsgBox)->
     case catch queue:out(MsgBox) of
@@ -68,19 +73,23 @@ handle_cast({stop},_MsgBox)->
 
 %---接受到信息全部放到箱子里面
 handle_info(Info,MsgBox) when is_record(Info,userMsg)->
-    queue:in(MsgBox,Info),
-    {noreply,MsgBox};
-handle_info({stop,Reason},MsgBox)->
+    % io:format("1234~n"),
+    NewMsgBox =  queue:in(Info,MsgBox),
+    {noreply,NewMsgBox};
+handle_info({stop,Reason},_MsgBox)->
+    % io:format("12345~n"),
     {stop,Reason};
 handle_info(_Info,MsgBox) ->
+    % io:format("123456~n"),
     {noreply,MsgBox}. 
 %--------------------------------------------------------------
-terminate(Reason,MsgBox)->
-    userOperator:deleteUser(self()),
+terminate(_Reason,_MsgBox)->
+    io:format("nChat-87:Reason:~w~n",[_Reason]),
+    userOperator:deleteUser(self(),_Reason),
     nameToPidMaps:remove(pid,self()), 
     ok. 
 %---------------------------------------------------------------
-code_chang(_OldVsn,State,_Extra)->{ok,State}. 
+code_change(_OldVsn,State,_Extra)->{ok,State}. 
 
 
 %%---------------------------------------------------------------
@@ -88,5 +97,5 @@ code_chang(_OldVsn,State,_Extra)->{ok,State}.
 %%---------------------------------------------------------------
 
 fixMsg(Sender,Type,Msg)->
-    #userMsg{form = Sender, type = Type ,infomation = Msg}. 
+    #userMsg{form = Sender, msgType = Type ,infomation = Msg}. 
 

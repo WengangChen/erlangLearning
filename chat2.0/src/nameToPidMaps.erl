@@ -30,11 +30,11 @@ init([])->
     {ok,ets:new(table,[named_table])}. 
 %------------------------------------------------------------------------------------
 handle_call({getPidFormUserName,UserList},_From,Table)->
-    Reply = catch pGetPidFormUserName(UserList,Table,[]),
+Reply = (catch pGetPidFormUserName(UserList,Table,[])),
     {reply,Reply,Table}. 
 
 %------------------------------------------------------------------------------------
-hanlde_cast({insert,User,Pid},Table)->
+handle_cast({insert,User,Pid},Table)->
     ets:insert(Table,{User,Pid}),
     {noreply,Table};
 
@@ -45,11 +45,19 @@ handle_cast({removePid,Pid},Table) ->
     ets:match_delete(Table,{'_',Pid}),
     {noreply,Table}. 
 
+%--------------------------------------------------------------------------
+code_change(_OldVsn,State,_Extra)->{ok,State}. 
+%----------------------------------------------------------------
+terminate(_Reason,_State)->ok. 
 
-
+%----------------------------------------------------------------\
+handle_info(_Request,State)->
+    {noreply,State}. 
+%----------------------------------------------------------------
+%       private function
 %----------------------------------------------------------------
 
-pGetPidFormUserName([],Table,Ans)->
+pGetPidFormUserName([],_Table,Ans)->
     {ok,Ans};
 pGetPidFormUserName(UserList,Table,Ans)->
     [A|Re] = UserList,

@@ -8,13 +8,14 @@
 
 -behavior(gen_server).
 
--export([intoChannel/2,
+-export([start/0,
+        intoChannel/2,
         intoTeam/2,
         intoGuild/2,
         leaveGuild/1,
         leaveTeam/1,
         createNewUser/1,
-        deleteUser/1,
+        deleteUser/2,
         getUserIdInChannel/1,
         getUserIdInGuild/1,
         getUserIdInTeam/1,
@@ -34,7 +35,7 @@ start()->
 
 intoChannel(UserId,ChannelId) when is_integer(ChannelId) ->
     if
-        ChannelId >= 0 ->
+        ChannelId >= 1 ->
             gen_server:call(?MODULE,{intoChannel,UserId,ChannelId}); 
         true ->
             {error,invalidChannelId}
@@ -45,7 +46,7 @@ intoChannel(_UserId,_ChannelId)->{error,invalidChannelId}.
 intoTeam(UserId,TeamId) when is_integer(TeamId) ->
     if
         TeamId >= 0 ->
-            gen_server:call(?MODULE,{intoTeam,UserId,ChannelId});
+            gen_server:call(?MODULE,{intoTeam,UserId,TeamId});
         true ->
             {error,invalidTeamId}
     end;
@@ -54,12 +55,12 @@ intoTeam(_UserId,_TeamId)->{error,invalidTeamId}.
 
 intoGuild(UserId,GuildId) when is_integer(GuildId) ->
     if
-        Guild >= 1 ->
+        GuildId >= 0 ->
             gen_server:call(?MODULE,{intoGuild,UserId,GuildId});
         true ->
             {error,invalidGuildId}
     end;
-intoTeam(_UserId,_GuildId)->{error,invalidGuildId}. 
+intoGuild(_UserId,_GuildId)->{error,invalidGuildId}. 
 
 
 leaveGuild(UserId)->
@@ -80,7 +81,7 @@ getUserIdInChannel(ChannelId) when is_integer(ChannelId)->
             gen_server:call(?MODULE,{getUserIdInChannel,ChannelId});      
         true ->{error,invalidChannelId}
     end;
-getUserIdInChannel(ChannelId)->{error,invalidChannelId}.      
+getUserIdInChannel(_ChannelId)->{error,invalidChannelId}.      
 
 getUserIdInGuild(GuildId) when is_integer(GuildId) ->
     if
@@ -100,7 +101,7 @@ getUserIdInTeam(TeamId) when is_integer(TeamId) ->
     end;
 getUserIdInTeam(_TeamId) -> {error,invalidTeamId}. 
 
-getUserState(UserId)-> gen_server:call({getUserState,UserId}). 
+getUserState(UserId)-> gen_server:call(?MODULE,{getUserState,UserId}). 
 
 %%------------------------------------------------------------------------------------
 %% gen_server callback
@@ -113,7 +114,7 @@ handle_call({intoChannel,UserId,ChannelId},_From,Table)->
             [] ->
                 {error,noSuchUser};
             [_User] ->
-                ets:update_elem(Table,UserId,{#user.channelId,ChannelId}),
+                ets:update_element(Table,UserId,{#user.channelId,ChannelId}),
                 {ok,UserId};
             Oth ->
                 {error,Oth}
@@ -125,7 +126,7 @@ handle_call({intoTeam,UserId,TeamId},_From,Table)->
             [] ->
                 {error,noSuchUser};
             [_User] ->
-                ets:update_elem(Table,UserId,{#user.teamId,TeamId}),
+                ets:update_element(Table,UserId,{#user.teamId,TeamId}),
                 {ok,UserId};
             Oth ->
                 {error,Oth}
@@ -137,7 +138,7 @@ handle_call({intoGuild,UserId,GuildId},_From,Table)->
             [] ->
                 {error,noSuchUser};
             [_User] ->
-                ets:update_elem(Table,UserId,{#user.guildId,GuildId}),
+                ets:update_element(Table,UserId,{#user.guildId,GuildId}),
                 {ok,UserId};
             Oth ->
                 {error,Oth}
@@ -194,21 +195,29 @@ handle_call({getUserIdInTeam,TeamId},_From,Table)->
         end,
     {reply,Reply,Table};
 handle_call({getUserState,UserId},_From,Table) ->
-    Reply = case catch ets:lookup(Table,#user.userId = UserId) of
-                []->{error,noSuchUserInUserOperator};
-                [R] when is_record(R) -> {ok,R};
-                _Oth ->{error,_Oth}
+    % [Value] = ets:lookup(Table,UserId),
+    % io:format("operator-198: ~w ~n",[is_record(Value,user)]),
+    Reply = case catch ets:lookup(Table, UserId) of
+                []->
+                    % io:format("1~n"),
+                    {error,noSuchUserInUserOperator};
+                [R] when is_record(R,user) -> 
+                    % io:format("operator-202 ~w ~n",[R]),
+                    {ok,R};
+                _Oth ->
+                    % io:format("2~n"),
+                    {error,_Oth}
         end,
     {reply,Reply,Table}. 
     
 %---------------------------------------------------------------------------
 handle_cast({deleteUser,UserId,Reason},Table)->
-    case catch ets:lookup(Table，#user.userId = UserId) of
+    case catch ets:lookup(Table,UserId) of
         [_]->UserId!{stop,Reason};
         [] ->noSuchUser;
         _Oth ->_Oth
     end,
-    ets:delete(Table,#user.userId = UserId),
+    ets:delete(Table, UserId),
     {noreply,Table} . 
 %---------------------------------------------------------------------------
 handle_info(_Info,Table)->
@@ -216,5 +225,5 @@ handle_info(_Info,Table)->
 %---------------------------------------------------------------------------
 terminate(_Reason,_Table)-> ok. 
 %--------------------------------------------------------------------------
-code_change(_OldVsn,Table,_Extra) ->{ok,Tbale}. 
+code_change(_OldVsn,Table,_Extra) ->{ok,Table}. 
 %---------------------------------------------------------------------------

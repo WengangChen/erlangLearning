@@ -11,7 +11,8 @@
         leaveTeam/1,
         sendMsgToChannel/2,
         sendMsgToTeam/2,
-        sendMsgToGuild/2]). 
+        sendMsgToGuild/2,
+        getMsg/1    ]). 
 % userId =  用户ID
 % teamId:队伍编号
 % channelId:频道
@@ -24,14 +25,16 @@ start()->
     userOperator:start(). 
 
 login(User)->
-    {ok,Pid} = userSup:startChild(User),
+    Result = userSup:startChild(User),
+    % io:format("logic-29:Result~w~n",[Result]),
+    {ok,Pid} = Result,
     nameToPidMaps:insert(User,Pid),
     userOperator:createNewUser(Pid). 
 
 intoChannel(UserName,ChannelId)->
     List = nameToPidMaps:getPidFormUserName(UserName),
     case List of
-        {error,Reason}>{error,Reason};
+        {error,Reason}->{error,Reason};
         {ok,[Pid]} ->userOperator:intoChannel(Pid,ChannelId);
         {ok,_Oth}->{error,notExactlyOne}
     end. 
@@ -39,7 +42,7 @@ intoChannel(UserName,ChannelId)->
 intoTeam(UserName,TeamId)->
     List = nameToPidMaps:getPidFormUserName(UserName),
     case List of
-        {error,Reason}>{error,Reason};
+        {error,Reason}->{error,Reason};
         {ok,[Pid]} ->userOperator:intoTeam(Pid,TeamId);
         {ok,_Oth}->{error,notExactlyOne}
     end. 
@@ -47,7 +50,7 @@ intoTeam(UserName,TeamId)->
 intoGuild(UserName,GuildId)->
     List = nameToPidMaps:getPidFormUserName(UserName),
     case List of
-        {error,Reason}>{error,Reason};
+        {error,Reason}->{error,Reason};
         {ok,[Pid]} ->userOperator:intoGuild(Pid,GuildId);
         {ok,_Oth}->{error,notExactlyOne}
     end. 
@@ -62,8 +65,8 @@ leaveGuild(UserName)->
 logout(UserName)->
     List = nameToPidMaps:getPidFormUserName(UserName),
     case List of
-        {error,Reason}>{error,Reason};
-        {ok,[Pid]} ->nchatServer:stop(Pid);
+        {error,Reason}->{error,Reason};
+        {ok,[Pid]} ->nChatServer:stop(Pid);
         {ok,_Oth}->{error,notExactlyOne}
     end. 
 
@@ -78,8 +81,8 @@ sendMsgToChannel(From,Msg)->
                     ChannelId = UserState#user.channelId,
                     Result = userOperator:getUserIdInChannel(ChannelId),
                     case Result of
-                        {ok,List} ->
-                            nchatServer:sendMsg(Pid,{From,channel,Msg},List);
+                        {ok,PidList} ->
+                            nChatServer:sendMsg(Pid,{From,channel,Msg},PidList);
                         Err ->{error,Err}
                     end;
                 Oth ->{error,Oth}
@@ -99,11 +102,11 @@ sendMsgToTeam(From,Msg)->
                 {ok,UserState} when is_record(UserState,user)->
                     TeamId = UserState#user.teamId,
                     if 
-                        TeamId \= 0->
+                        TeamId /= 0->
                             Result = userOperator:getUserIdInTeam(TeamId),
                             case Result of
-                                {ok,List} ->
-                                    nchatServer:sendMsg(Pid,{From,team,Msg},List);
+                                {ok,PidList} ->
+                                    nChatServer:sendMsg(Pid,{From,team,Msg},PidList);
                                 Err ->{error,Err}
                             end;
                         true ->{error,noInTeam}
@@ -116,19 +119,25 @@ sendMsgToTeam(From,Msg)->
  
 sendMsgToGuild(From,Msg)->
     List = nameToPidMaps:getPidFormUserName(From),
+    % io:format("logic-122~w~n",[List]),
     case List of
         {error,Reason}->
             {error,Reason};
         {ok,[Pid]} ->
+            % io:format("logic-127 :~w~n",[userOperator:getUserState(Pid)]),
             case catch userOperator:getUserState(Pid) of
                 {ok,UserState} when is_record(UserState,user)->
+                    % io:format("lalal~n"),
                     GuildId = UserState#user.guildId,
                     if
                         GuildId /= 0 ->
-                            Result = userOperator:getUserIdInGuild(GuildlId),
+                            Result = userOperator:getUserIdInGuild(GuildId),
+                            % io:format("logic-135:Result ~w ~n",[Result]),
                             case Result of
-                                {ok,List} ->
-                                    nchatServer:sendMsg(Pid,{From,guild,Msg},List);
+                                {ok,PidList} ->
+                                    % io:format("logic-138:Result1 ~w ~n",[Result]),
+                                    nChatServer:sendMsg(Pid,{From,guild,Msg},PidList);
+                                    % io:format("logic-140:Result2 ~w ~n",[Result]);
                                 Err ->{error,Err}
                             end;
                         true ->{error,noInGuild}
@@ -139,3 +148,15 @@ sendMsgToGuild(From,Msg)->
             {error,notExactlyOne}
     end. 
  
+getMsg(UserName)->
+    % io:format("logicChat-152:UserName:~w~n",[UserName]),
+    List = nameToPidMaps:getPidFormUserName(UserName),
+    % io:format("logicChat-153:getMsgList:~w~n",[List]),
+    case List of
+        {error,Reason}->
+        {error,Reason};
+        {ok,[Pid]} ->
+            nChatServer:getMsg(Pid);
+        {ok,_Oth}->
+            {error,notExactlyOne}
+    end. 
